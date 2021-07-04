@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+  <title></title>
+  <style type="text/css">
+    body {
+      margin: 0px;
+      padding: 0px;
+    }
+    canvas {
+      width: 100vw;
+      max-width: 700px;
+      display: inline;
+    }
+  </style>
+</head>
+<body>
+  <div style="width: 100%;text-align:center;">
+    <canvas id="myCanvas" width="1200" height="700"></canvas>
+  </div>
+  <script type="text/javascript">
+    var X_POWER = 0
+    var Y_POWER = 0
+    var H = 0
+    var THETA_RAD = 0
+    var IS_DOWN = true;
+
+    window.setInterval(() => {
+
+      if (!IS_DOWN) {
+        fetch('./sendCommand', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({__: Date.now(), yl: 'b0000', yr: 'a0000'})
+        })
+        .then(response => response.json())
+        .catch((err) => console.error(err));
+
+      } else {
+
+        let X_POWERClamp = Math.abs(X_POWER) > 1 ? Math.abs(X_POWER)/X_POWER : X_POWER
+        let Y_POWERClamp = Math.abs(Y_POWER) > 1 ? Math.abs(Y_POWER)/Y_POWER : Y_POWER
+        let HClamp = Math.round(Math.abs(H) > 1 ? Math.abs(H)/H : H)*8000
+        
+        // console.log(Math.cos(THETA_RAD), Math.sin(THETA_RAD))
+        // let theta2 = THETA_RAD/Math.PI
+        // console.log(Math.cos(THETA_RAD*2), Math.sin((THETA_RAD+Math.PI*4)*2))
+
+        let thetaDeg = (THETA_RAD/Math.PI * 180)
+        x = thetaDeg < 0 ? 360+thetaDeg: thetaDeg
+
+        let yr = -0.000000002540*Math.pow(x, 4) + 0.000002286237*Math.pow(x, 3) - 0.000596707819*Math.pow(x, 2) + 0.037037037037*x + 1.000000000002
+
+        let yl = 0.000000002540*Math.pow(x, 4) - 0.000001371742*Math.pow(x, 3) + 0.000102880658*Math.pow(x, 2) + 0.022222222222*x- 1.000000000005
+
+
+        yl = (yl > 0 ? 'A' : 'a') + Math.abs(Math.round((Math.abs(yl) > 1 ? 1 : yl) * 8000))
+        yr = (yr > 0 ? 'B' : 'b') + Math.abs(Math.round((Math.abs(yr) > 1 ? 1 : yr) * 8000))
+
+        // yr = (yr > 0 ? 'A' : 'a') + Math.abs(Math.round(8000))
+        // yl = (yl > 0 ? 'B' : 'b') + Math.abs(Math.round(8000))
+
+        console.log(yr, yl)
+        fetch('./sendCommand', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({__: Date.now(), yr: yr, yl: yl})
+        })
+        .then(response => response.json())
+        .catch((err) => console.error(err));
+        
+      }
+
+    }, 500)
+
+    const canvas = document.getElementById('myCanvas');
+    const ctx = canvas.getContext('2d');
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = 270;
+
+    const drawMainCircle = () => {
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
+      ctx.fillStyle = 'green';
+      ctx.fill();
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#003300';
+      ctx.stroke();
+    }
+    drawMainCircle();
+
+    
+    'touchstart mousedown'.split(' ').forEach(e => {
+      canvas.addEventListener(e, () => { IS_DOWN = true; }, false);
+    });
+    'mousemove touchmove'.split(' ').forEach(e => {
+      canvas.addEventListener(e, (evt) => {
+        if (IS_DOWN) {
+          var rect = evt.target.getBoundingClientRect();
+
+          clientX = evt.clientX || evt.touches[0].clientX;
+          clientY = evt.clientY || evt.touches[0].clientY;
+
+          const coords = {
+            x: (clientX - rect.left) / (rect.right - rect.left) * evt.target.width,
+            y: (clientY - rect.top) / (rect.bottom - rect.top) * evt.target.height,
+          };
+
+          const innerRadius = 150;
+          
+          X_POWER = (coords.x - evt.target.width/2)/(innerRadius - radius)
+          Y_POWER = (coords.y - evt.target.height/2)/(innerRadius - radius)
+          H = Math.sqrt(X_POWER*X_POWER+Y_POWER*Y_POWER)
+          THETA_RAD = Math.atan2(Y_POWER, X_POWER)
+          thetaDeg = THETA_RAD / Math.PI * 360
+          // console.log(thetaDeg)
+          
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          drawMainCircle();
+          ctx.beginPath();
+          ctx.arc(
+            // evt.target.width/2,
+            // evt.target.height/2,
+            coords.x,
+            coords.y,
+            innerRadius, 0, 2 * Math.PI, false)
+          ;
+          
+          ctx.fillStyle = 'blue';
+          ctx.fill();
+          ctx.lineWidth = 5;
+          ctx.strokeStyle = '#003300';
+          ctx.stroke();
+        }
+      }, false);
+    });
+    'touchend mouseup touchcancel'.split(' ').forEach(e => {
+      canvas.addEventListener(e, () => {
+        IS_DOWN = false;
+      }, false);
+    });
+  </script>
+</body>
+</html>
